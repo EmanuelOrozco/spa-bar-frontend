@@ -15,7 +15,7 @@ import { loginSchema, LoginFormValues } from '@/lib/schemas';
 import { authService } from '@/services/auth.service';
 import { useAuth } from '@/context/AuthContext';
 import { getApiErrorMessage, getFieldErrors } from '@/services/http';
-import { APP_NAME } from '@/lib/branding';
+import { APP_NAME, BRAND_NAME, LOGO_HEIGHT, LOGO_WIDTH } from '@/lib/branding';
 
 function LoginForm() {
   const { login } = useAuth();
@@ -57,15 +57,24 @@ function LoginForm() {
 
   return (
     <AuthLayout>
-      <div className="mb-8 flex flex-col items-center lg:hidden">
-        <Image
-          src="/logo-spa-bar.png"
-          alt={APP_NAME}
-          width={80}
-          height={80}
-          className="mb-4 rounded-xl"
-        />
-        <h1 className="text-center text-xl font-bold text-white">{APP_NAME}</h1>
+      <div className="mb-8 flex w-full flex-col items-center justify-center text-center lg:hidden">
+        <div className="relative mb-4 flex justify-center">
+          <div
+            className="pointer-events-none absolute left-1/2 top-1/2 size-28 -translate-x-1/2 -translate-y-1/2 rounded-full bg-brand-500/15 blur-2xl"
+            aria-hidden
+          />
+          <Image
+            src="/logo-spa-bar.png"
+            alt=""
+            width={LOGO_WIDTH}
+            height={LOGO_HEIGHT}
+            className="relative size-24 object-contain"
+            priority
+            aria-hidden
+          />
+        </div>
+        <p className="text-xl font-bold text-brand-500">{BRAND_NAME}</p>
+        <h1 className="mt-1 text-base font-bold text-white">{APP_NAME}</h1>
       </div>
 
       <div className="glass-panel">

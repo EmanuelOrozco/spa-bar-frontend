@@ -11,7 +11,7 @@ import { Card, StatCard } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Modal } from '@/components/ui/Modal';
-import { LoadingState } from '@/components/ui/Spinner';
+import { LoadingState, EmptyState, ErrorState } from '@/components/ui/Spinner';
 import { DataTable, DataRow, DataCell } from '@/components/ui/DataTable';
 import { useOrders, useOrderStats, useOrderMutations } from '@/hooks/useOrders';
 import { useProducts } from '@/hooks/useProducts';
@@ -21,11 +21,13 @@ import { formatCurrency, formatTime } from '@/lib/utils';
 import { orderSchema, OrderFormValues } from '@/lib/schemas';
 import { ORDER_STATUS_OPTIONS } from '@/lib/constants';
 import { getApiErrorMessage } from '@/services/http';
-import { OrderStatus } from '@/types';
+import { OrderStatus, Order } from '@/types';
 import { Input } from '@/components/ui/Input';
 import { Select } from '@/components/ui/Select';
-import { Plus, Trash2, DollarSign, Ticket, Package } from 'lucide-react';
+import { Plus, Trash2, DollarSign, Ticket, Package, Eye } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
+import { OrderDetailModal } from '@/components/orders/OrderDetailModal';
+import { getUnavailableProducts, formatUnavailableMessage } from '@/lib/orderStock';
 
 const DAYS = ['Dom', 'Lun', 'Mar', 'Mie', 'Jue', 'Vie', 'Sab'];
 
@@ -45,8 +47,15 @@ function buildWeekChart(orders: { total: number; createdAt: string }[]) {
 export default function VentasPage() {
   const { isAdmin } = useAuth();
   const [modalOpen, setModalOpen] = useState(false);
+  const [detailOrder, setDetailOrder] = useState<Order | null>(null);
+  const [stockError, setStockError] = useState<string | null>(null);
   const { data: stats, isLoading: statsLoading } = useOrderStats();
-  const { data: ordersData, isLoading } = useOrders({ page: 1, limit: 20 });
+  const {
+    data: ordersData,
+    isLoading,
+    isError: ordersError,
+    refetch: refetchOrders,
+  } = useOrders({ page: 1, limit: 20 });
   const { data: productsData } = useProducts({ page: 1, limit: 100, isMenuItem: true });
   const { data: tablesData } = useTables({ page: 1, limit: 20 });
   const { create, update, remove } = useOrderMutations();
@@ -64,11 +73,18 @@ export default function VentasPage() {
 
   const { fields, append, remove: removeItem } = useFieldArray({ control, name: 'items' });
 
-  const productOptions =
-    productsData?.data.map((p) => ({
+  const products = productsData?.data ?? [];
+
+  const productOptions = products.map((p) => {
+    const outOfStock = p.stock < 1;
+    return {
       value: p.id,
-      label: `${p.name} — ${formatCurrency(p.price)}`,
-    })) ?? [];
+      label: outOfStock
+        ? `${p.name} — No disponible (stock: ${p.stock})`
+        : `${p.name} — ${formatCurrency(p.price)} (stock: ${p.stock})`,
+      disabled: outOfStock,
+    };
+  });
 
   const tableOptions = [
     { value: '', label: 'Sin mesa / Barra' },
@@ -76,6 +92,15 @@ export default function VentasPage() {
   ];
 
   const onSubmit = async (values: OrderFormValues) => {
+    setStockError(null);
+    const unavailable = getUnavailableProducts(values.items, products);
+    if (unavailable.length) {
+      const message = formatUnavailableMessage(unavailable);
+      setStockError(message);
+      toast.error(message);
+      return;
+    }
+
     try {
       await create.mutateAsync({
         ...values,
@@ -83,6 +108,7 @@ export default function VentasPage() {
       });
       toast.success('Pedido creado');
       setModalOpen(false);
+      setStockError(null);
       reset({ items: [{ productId: '', quantity: 1 }] });
     } catch (error) {
       toast.error(getApiErrorMessage(error));
@@ -92,7 +118,11 @@ export default function VentasPage() {
   const handleStatusChange = async (orderId: string, status: OrderStatus) => {
     try {
       await update.mutateAsync({ id: orderId, payload: { status } });
-      toast.success('Estado actualizado');
+      if (status === 'DELIVERED') {
+        toast.success('Pedido entregado. Inventario actualizado.');
+      } else {
+        toast.success('Estado actualizado');
+      }
     } catch (error) {
       toast.error(getApiErrorMessage(error));
     }
@@ -105,7 +135,11 @@ export default function VentasPage() {
       <AppShell>
         <PageHeader
           title="Reporte de Ventas"
-          subtitle="Desempeño financiero y pedidos"
+          subtitle={
+            isAdmin
+              ? 'Vista global de todos los pedidos del local'
+              : 'Tus pedidos y métricas personales'
+          }
           action={
             <Button onClick={() => setModalOpen(true)}>
               <Plus className="h-4 w-4" /> Nuevo Pedido
@@ -117,17 +151,17 @@ export default function VentasPage() {
         {stats && (
           <div className="mb-6 grid gap-4 sm:grid-cols-3">
             <StatCard
-              label="Ingresos Semana"
+              label={isAdmin ? 'Ingresos Semana (global)' : 'Tus ingresos semana'}
               value={formatCurrency(stats.weekSales)}
               icon={<DollarSign className="h-6 w-6" />}
             />
             <StatCard
-              label="Ticket Promedio"
+              label={isAdmin ? 'Ticket Promedio (global)' : 'Tu ticket promedio'}
               value={formatCurrency(stats.avgTicket)}
               icon={<Ticket className="h-6 w-6" />}
             />
             <StatCard
-              label="Pedidos Hoy"
+              label={isAdmin ? 'Pedidos Hoy (global)' : 'Tus pedidos hoy'}
               value={stats.todayOrders}
               icon={<Package className="h-6 w-6" />}
             />
@@ -136,7 +170,9 @@ export default function VentasPage() {
 
         <div className="grid gap-6">
           <Card>
-            <h3 className="mb-4 font-semibold text-white">Ventas por Día</h3>
+            <h3 className="mb-4 font-semibold text-white">
+              {isAdmin ? 'Ventas por Día (todas)' : 'Tus ventas por día'}
+            </h3>
             <ResponsiveContainer width="100%" height={220}>
               <BarChart data={chartData}>
                 <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
@@ -162,55 +198,89 @@ export default function VentasPage() {
           </Card>
 
           <Card>
-            <h3 className="mb-4 font-semibold text-white">Pedidos</h3>
+            <h3 className="mb-4 font-semibold text-white">
+              {isAdmin ? 'Todos los pedidos' : 'Mis pedidos'}
+            </h3>
             {isLoading && <LoadingState />}
-            <DataTable
-              columns={[
-                { key: 'num', label: '#' },
-                { key: 'mesa', label: 'Mesa' },
-                { key: 'total', label: 'Total' },
-                { key: 'estado', label: 'Estado' },
-                { key: 'hora', label: 'Hora' },
-                { key: 'accion', label: 'Acción' },
-              ]}
-            >
-              {ordersData?.data.map((order) => (
-                <DataRow key={order.id}>
-                  <DataCell className="text-muted">#{order.orderNumber}</DataCell>
-                  <DataCell>{order.tableName ?? 'Barra'}</DataCell>
-                  <DataCell className="font-medium">{formatCurrency(order.total)}</DataCell>
-                  <DataCell>
-                    <Select
-                      size="sm"
-                      options={ORDER_STATUS_OPTIONS.map((opt) => ({
-                        value: opt.value,
-                        label: opt.label,
-                      }))}
-                      value={order.status}
-                      onChange={(e) => handleStatusChange(order.id, e.target.value as OrderStatus)}
-                      className="min-w-[140px]"
-                    />
-                  </DataCell>
-                  <DataCell className="text-muted">{formatTime(order.createdAt)}</DataCell>
-                  <DataCell>
-                    {isAdmin && (
-                      <Button
-                        variant="ghost"
-                        className="px-2 py-1"
-                        onClick={async () => {
-                          if (confirm('¿Eliminar pedido?')) {
-                            await remove.mutateAsync(order.id);
-                            toast.success('Pedido eliminado');
-                          }
-                        }}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    )}
-                  </DataCell>
-                </DataRow>
-              ))}
-            </DataTable>
+            {ordersError && (
+              <ErrorState
+                message="No se pudieron cargar los pedidos"
+                onRetry={() => refetchOrders()}
+              />
+            )}
+            {!isLoading && !ordersError && !ordersData?.data.length && (
+              <EmptyState
+                title="Sin pedidos registrados"
+                action={
+                  <Button onClick={() => setModalOpen(true)}>
+                    <Plus className="h-4 w-4" /> Crear primer pedido
+                  </Button>
+                }
+              />
+            )}
+            {!ordersError && Boolean(ordersData?.data.length) && (
+              <DataTable
+                columns={[
+                  { key: 'num', label: '#' },
+                  ...(isAdmin ? [{ key: 'mesero', label: 'Mesero' }] : []),
+                  { key: 'mesa', label: 'Mesa' },
+                  { key: 'total', label: 'Total' },
+                  { key: 'estado', label: 'Estado' },
+                  { key: 'hora', label: 'Hora' },
+                  { key: 'accion', label: 'Acción' },
+                ]}
+              >
+                {ordersData?.data.map((order) => (
+                  <DataRow key={order.id}>
+                    <DataCell className="text-muted">#{order.orderNumber}</DataCell>
+                    {isAdmin && <DataCell className="text-muted">{order.userName}</DataCell>}
+                    <DataCell>{order.tableName ?? 'Barra'}</DataCell>
+                    <DataCell className="font-medium">{formatCurrency(order.total)}</DataCell>
+                    <DataCell>
+                      <Select
+                        size="sm"
+                        options={ORDER_STATUS_OPTIONS.map((opt) => ({
+                          value: opt.value,
+                          label: opt.label,
+                        }))}
+                        value={order.status}
+                        onChange={(e) =>
+                          handleStatusChange(order.id, e.target.value as OrderStatus)
+                        }
+                        className="min-w-[140px]"
+                      />
+                    </DataCell>
+                    <DataCell className="text-muted">{formatTime(order.createdAt)}</DataCell>
+                    <DataCell>
+                      <div className="flex gap-1">
+                        <Button
+                          variant="ghost"
+                          className="px-2 py-1"
+                          title="Ver detalle del pedido"
+                          onClick={() => setDetailOrder(order)}
+                        >
+                          <Eye className="h-4 w-4" />
+                        </Button>
+                        {isAdmin && (
+                          <Button
+                            variant="ghost"
+                            className="px-2 py-1"
+                            onClick={async () => {
+                              if (confirm('¿Eliminar pedido?')) {
+                                await remove.mutateAsync(order.id);
+                                toast.success('Pedido eliminado');
+                              }
+                            }}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        )}
+                      </div>
+                    </DataCell>
+                  </DataRow>
+                ))}
+              </DataTable>
+            )}
           </Card>
         </div>
 
@@ -228,7 +298,16 @@ export default function VentasPage() {
                 />
               )}
             />
-            <Input label="Notas" error={errors.notes?.message} {...register('notes')} />
+            <Input
+              label="Notas / descripción del pedido"
+              error={errors.notes?.message}
+              {...register('notes')}
+            />
+            {stockError && (
+              <p className="rounded-lg border border-danger/30 bg-danger/10 px-3 py-2 text-sm text-danger">
+                {stockError}
+              </p>
+            )}
             <div className="space-y-3">
               <p className="text-sm font-medium text-white">Productos</p>
               {fields.map((field, index) => (
@@ -268,6 +347,12 @@ export default function VentasPage() {
             </Button>
           </form>
         </Modal>
+
+        <OrderDetailModal
+          order={detailOrder}
+          isOpen={Boolean(detailOrder)}
+          onClose={() => setDetailOrder(null)}
+        />
       </AppShell>
     </ProtectedRoute>
   );

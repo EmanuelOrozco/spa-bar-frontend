@@ -1,4 +1,14 @@
-import { OrderStatus, ReservationStatus, TableStatus } from '@/types';
+import { OrderStatus, PublicUser, ReservationStatus, TableStatus } from '@/types';
+
+export const PRIMARY_ADMIN_EMAIL = 'admin@spabar.com';
+
+export function isPrimaryAdmin(user: Pick<PublicUser, 'email'>): boolean {
+  return user.email.trim().toLowerCase() === PRIMARY_ADMIN_EMAIL;
+}
+
+export function isDelegatedAdmin(user: Pick<PublicUser, 'email' | 'role'>): boolean {
+  return user.role === 'admin' && !isPrimaryAdmin(user);
+}
 
 export const ORDER_STATUS_OPTIONS: { value: OrderStatus; label: string }[] = [
   { value: 'PENDING', label: 'Pendiente' },

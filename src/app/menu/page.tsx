@@ -13,7 +13,7 @@ import { LoadingState, EmptyState } from '@/components/ui/Spinner';
 import { ProductForm } from '@/components/products/ProductForm';
 import { useProducts, useProductMutations } from '@/hooks/useProducts';
 import { useAuth } from '@/context/AuthContext';
-import { formatCurrency } from '@/lib/utils';
+import { cn, formatCurrency } from '@/lib/utils';
 import { ProductFormValues, CATEGORY_LABELS } from '@/lib/schemas';
 import { Product, ProductCategory } from '@/types';
 import { getApiErrorMessage } from '@/services/http';
@@ -134,60 +134,83 @@ export default function MenuPage() {
         {!isLoading && !data?.data.length && (
           <EmptyState
             title="Sin productos en el menú"
-            action={<Button onClick={openCreate}>Crear producto</Button>}
+            action={isAdmin ? <Button onClick={openCreate}>Crear producto</Button> : undefined}
           />
         )}
 
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-          {data?.data.map((product) => (
-            <Card
-              key={product.id}
-              className={`flex flex-col ${isAdmin && !product.isMenuItem ? 'opacity-75 ring-1 ring-border/60' : ''}`}
-            >
-              <div className="relative mb-4 h-40 overflow-hidden rounded-xl bg-black/30">
-                <ProductImage imageData={product.imageData} alt={product.name} />
-                {isAdmin && !product.isMenuItem && (
-                  <span className="absolute left-3 top-3 rounded-full border border-border bg-black/70 px-2.5 py-1 text-xs font-medium text-muted backdrop-blur">
-                    No en menú
-                  </span>
+          {data?.data.map((product) => {
+            const visibleToStaff = isAdmin && product.isMenuItem;
+            return (
+              <Card
+                key={product.id}
+                className={cn(
+                  'flex flex-col transition-colors',
+                  visibleToStaff &&
+                    'border-orange-500/50 bg-orange-500/[0.07] ring-2 ring-orange-500/45 shadow-[0_0_24px_-8px_rgba(249,115,22,0.35)]',
+                  isAdmin && !product.isMenuItem && 'opacity-80 ring-1 ring-border/60'
                 )}
-                {product.price > 0 && (
-                  <span className="absolute right-3 top-3 rounded-full border border-border bg-black/60 px-3 py-1 text-sm font-bold text-brand-500 backdrop-blur">
-                    {formatCurrency(product.price)}
-                  </span>
-                )}
-              </div>
-              <div className="mb-2 flex items-start justify-between gap-2">
-                <h3 className="font-semibold text-white">{product.name}</h3>
-                {statusBadge(product.status)}
-              </div>
-              <p className="mb-4 flex-1 text-xs text-muted line-clamp-2">
-                {product.description ?? 'Sin descripción'}
-              </p>
-              <div className="flex items-center justify-between">
-                <span className="text-xs text-muted">Stock: {product.stock}</span>
-                {isAdmin && (
-                  <div className="flex gap-2">
-                    <Button
-                      variant="outline"
-                      className="px-3 py-1.5"
-                      onClick={() => openEdit(product)}
-                      disabled={loadingEdit}
-                    >
-                      <Pencil className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      variant="danger"
-                      className="px-3 py-1.5"
-                      onClick={() => handleDelete(product.id)}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
+              >
+                <div
+                  className={cn(
+                    'relative mb-4 h-40 overflow-hidden rounded-xl bg-black/30',
+                    visibleToStaff && 'ring-1 ring-inset ring-orange-500/30'
+                  )}
+                >
+                  <ProductImage imageData={product.imageData} alt={product.name} />
+                  {visibleToStaff && (
+                    <span className="absolute left-3 top-3 rounded-full border border-orange-500/50 bg-orange-950/90 px-2.5 py-1 text-xs font-semibold text-orange-300 backdrop-blur">
+                      En menú
+                    </span>
+                  )}
+                  {product.price > 0 && (
+                    <span className="absolute right-3 top-3 rounded-full border border-border bg-black/60 px-3 py-1 text-sm font-bold text-brand-500 backdrop-blur">
+                      {formatCurrency(product.price)}
+                    </span>
+                  )}
+                </div>
+                <div className="mb-2 flex items-start justify-between gap-2">
+                  <h3
+                    className={cn(
+                      'font-semibold',
+                      visibleToStaff ? 'text-orange-100' : 'text-white'
+                    )}
+                  >
+                    {product.name}
+                  </h3>
+                  <div className="flex shrink-0 flex-col items-end gap-1">
+                    {isAdmin && !product.isMenuItem && <Badge variant="default">No en menú</Badge>}
+                    {statusBadge(product.status)}
                   </div>
-                )}
-              </div>
-            </Card>
-          ))}
+                </div>
+                <p className="mb-4 flex-1 text-xs text-muted line-clamp-2">
+                  {product.description ?? 'Sin descripción'}
+                </p>
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-muted">Stock: {product.stock}</span>
+                  {isAdmin && (
+                    <div className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        className="px-3 py-1.5"
+                        onClick={() => openEdit(product)}
+                        disabled={loadingEdit}
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="danger"
+                        className="px-3 py-1.5"
+                        onClick={() => handleDelete(product.id)}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              </Card>
+            );
+          })}
 
           {isAdmin && (
             <button

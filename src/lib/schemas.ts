@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { PRIMARY_ADMIN_EMAIL } from '@/lib/constants';
 
 export const loginSchema = z.object({
   email: z.string().trim().email('Email inválido'),
@@ -19,6 +20,24 @@ export const registerSchema = z.object({
 
 export type LoginFormValues = z.infer<typeof loginSchema>;
 export type RegisterFormValues = z.infer<typeof registerSchema>;
+
+export const profileSettingsSchema = z
+  .object({
+    currentPassword: z.string().min(1, 'Ingresa tu contraseña actual'),
+    newPassword: z
+      .string()
+      .min(8, 'Mínimo 8 caracteres')
+      .regex(/[A-Z]/, 'Incluye una mayúscula')
+      .regex(/[a-z]/, 'Incluye una minúscula')
+      .regex(/[0-9]/, 'Incluye un número'),
+    confirmPassword: z.string().min(1, 'Confirma la nueva contraseña'),
+  })
+  .refine((data) => data.newPassword === data.confirmPassword, {
+    message: 'Las contraseñas no coinciden',
+    path: ['confirmPassword'],
+  });
+
+export type ProfileSettingsFormValues = z.infer<typeof profileSettingsSchema>;
 
 export const productSchema = z.object({
   sku: z.string().trim().min(2, 'Código requerido'),
@@ -57,16 +76,41 @@ export const productSchema = z.object({
 
 export type ProductFormValues = z.infer<typeof productSchema>;
 
-export const userSchema = z.object({
-  name: z.string().trim().min(2),
-  email: z.string().trim().email(),
-  password: z.string().min(8).optional(),
+const userBaseSchema = z.object({
+  name: z.string().trim().min(2, 'Nombre requerido'),
+  email: z.string().trim().email('Correo inválido'),
   role: z.enum(['admin', 'employee']),
   position: z.string().trim().max(100).optional().nullable(),
   isActive: z.boolean().optional(),
 });
 
-export type UserFormValues = z.infer<typeof userSchema>;
+export const createUserSchema = userBaseSchema
+  .extend({
+    password: z
+      .string()
+      .min(8, 'Mínimo 8 caracteres')
+      .regex(/[A-Z]/, 'Incluye una mayúscula')
+      .regex(/[a-z]/, 'Incluye una minúscula')
+      .regex(/[0-9]/, 'Incluye un número'),
+  })
+  .refine((data) => data.email.trim().toLowerCase() !== PRIMARY_ADMIN_EMAIL, {
+    message: 'Este correo está reservado para el administrador principal',
+    path: ['email'],
+  });
+
+export const editUserSchema = userBaseSchema.extend({
+  password: z
+    .string()
+    .optional()
+    .refine((val) => !val || val.length >= 8, 'Mínimo 8 caracteres si defines contraseña'),
+});
+
+/** @deprecated Usar createUserSchema o editUserSchema */
+export const userSchema = createUserSchema;
+
+export type CreateUserFormValues = z.infer<typeof createUserSchema>;
+export type EditUserFormValues = z.infer<typeof editUserSchema>;
+export type UserFormValues = CreateUserFormValues;
 
 export const orderSchema = z.object({
   tableId: z.string().optional(),

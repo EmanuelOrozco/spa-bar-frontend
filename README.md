@@ -55,7 +55,7 @@ App disponible en `http://localhost:3000`
 | `/ventas` | Pedidos y reportes |
 | `/mesas` | Mesas y reservas |
 | `/staff` | Gestión de personal (admin) |
-| `/admin` | Panel administrativo (admin) |
+| `/admin` | Redirige al dashboard (solo admin) |
 
 ## Scripts
 
@@ -83,6 +83,19 @@ App disponible en `http://localhost:3000`
 ## Sesión
 
 - JWT en `localStorage`
+- Hidratación con `GET /auth/me` al cargar (sesión persiste al refrescar)
 - Interceptor Axios inyecta token automáticamente
 - 401 → logout + redirect a `/login`
 - Refresh token automático
+
+## Cumplimiento rúbrica (Proyecto Final Web)
+
+| Criterio | Estado |
+|----------|--------|
+| Login/registro/logout + persistencia sesión | ✅ |
+| 401 automático + errores en formulario | ✅ |
+| Rutas privadas + rol admin + 404 | ✅ |
+| Vistas CRUD + loading/vacío/error + responsive | ✅ |
+| Cliente HTTP centralizado (`services/http.ts`) | ✅ |
+| Arquitectura services/hooks/components/app | ✅ |
+| Dark mode | ✅ (bonificación) |

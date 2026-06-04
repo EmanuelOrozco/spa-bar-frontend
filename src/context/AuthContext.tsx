@@ -10,7 +10,8 @@ import {
   type ReactNode,
 } from 'react';
 import { PublicUser } from '@/types';
-import { clearTokens, setTokens } from '@/services/http';
+import { authService } from '@/services/auth.service';
+import { clearTokens, getStoredToken, setTokens } from '@/services/http';
 
 interface AuthContextValue {
   user: PublicUser | null;
@@ -18,6 +19,7 @@ interface AuthContextValue {
   isAdmin: boolean;
   isLoading: boolean;
   login: (accessToken: string, refreshToken: string, user: PublicUser) => void;
+  updateSession: (accessToken: string, refreshToken: string, user: PublicUser) => void;
   logout: () => void;
 }
 
@@ -28,15 +30,34 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    const stored = localStorage.getItem('spa-bar-user');
-    if (stored) {
+    let cancelled = false;
+
+    async function hydrateSession() {
+      const token = getStoredToken();
+      if (!token) {
+        clearTokens();
+        if (!cancelled) setIsLoading(false);
+        return;
+      }
+
       try {
-        setUser(JSON.parse(stored) as PublicUser);
+        const me = await authService.getMe();
+        if (!cancelled) {
+          localStorage.setItem('spa-bar-user', JSON.stringify(me));
+          setUser(me);
+        }
       } catch {
         clearTokens();
+        if (!cancelled) setUser(null);
+      } finally {
+        if (!cancelled) setIsLoading(false);
       }
     }
-    setIsLoading(false);
+
+    hydrateSession();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const login = useCallback((accessToken: string, refreshToken: string, userData: PublicUser) => {
@@ -44,6 +65,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     localStorage.setItem('spa-bar-user', JSON.stringify(userData));
     setUser(userData);
   }, []);
+
+  const updateSession = useCallback(
+    (accessToken: string, refreshToken: string, userData: PublicUser) => {
+      setTokens(accessToken, refreshToken);
+      localStorage.setItem('spa-bar-user', JSON.stringify(userData));
+      setUser(userData);
+    },
+    []
+  );
 
   const logout = useCallback(() => {
     clearTokens();
@@ -53,13 +83,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const value = useMemo(
     () => ({
       user,
-      isAuthenticated: Boolean(user),
+      isAuthenticated: Boolean(user && getStoredToken()),
       isAdmin: user?.role === 'admin',
       isLoading,
       login,
+      updateSession,
       logout,
     }),
-    [user, isLoading, login, logout]
+    [user, isLoading, login, updateSession, logout]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

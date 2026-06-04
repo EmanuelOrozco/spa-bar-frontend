@@ -11,7 +11,7 @@ export const http = axios.create({
 
 let isRedirecting = false;
 
-function getStoredToken(): string | null {
+export function getStoredToken(): string | null {
   if (typeof window === 'undefined') return null;
   return localStorage.getItem('spa-bar-token');
 }
@@ -46,7 +46,8 @@ http.interceptors.response.use(
     const originalRequest = error.config;
     const isAuthRoute =
       originalRequest?.url?.includes('/auth/login') ||
-      originalRequest?.url?.includes('/auth/register');
+      originalRequest?.url?.includes('/auth/register') ||
+      originalRequest?.url?.includes('/auth/me');
 
     if (error.response?.status === 401 && !isAuthRoute && typeof window !== 'undefined') {
       const refreshToken = getStoredRefreshToken();

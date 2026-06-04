@@ -2,13 +2,17 @@ import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
 import '@/styles/globals.css';
 import { Providers } from '@/components/Providers';
+import { APP_NAME, BRAND_NAME } from '@/lib/branding';
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-sans' });
 
 export const metadata: Metadata = {
-  title: 'Gestión de Bares y Restaurantes',
-  description: 'Plataforma de gestión para bares y restaurantes',
-  icons: { icon: '/logo-spa-bar.png', apple: '/logo-spa-bar.png' },
+  title: {
+    default: BRAND_NAME,
+    template: `%s | ${BRAND_NAME}`,
+  },
+  description: APP_NAME,
+  applicationName: BRAND_NAME,
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

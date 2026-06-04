@@ -78,6 +78,7 @@ export interface OrderItem {
   orderId: string;
   productId: string;
   productName: string;
+  productDescription: string | null;
   quantity: number;
   unitPrice: number;
   subtotal: number;

@@ -1,15 +1,16 @@
 import Link from 'next/link';
 import Image from 'next/image';
+import { APP_SHORT_NAME, LOGO_HEIGHT, LOGO_WIDTH } from '@/lib/branding';
 
 export default function NotFoundPage() {
   return (
     <div className="flex min-h-screen flex-col items-center justify-center gap-6 p-6 text-center">
       <Image
         src="/logo-spa-bar.png"
-        alt="Gestor Bar"
-        width={80}
-        height={80}
-        className="rounded-xl opacity-50"
+        alt={APP_SHORT_NAME}
+        width={LOGO_WIDTH}
+        height={LOGO_HEIGHT}
+        className="size-20 opacity-50"
       />
       <div>
         <h1 className="text-6xl font-bold text-brand-500">404</h1>

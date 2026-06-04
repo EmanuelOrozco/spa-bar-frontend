@@ -15,7 +15,7 @@ import {
 interface SelectProps extends Omit<SelectHTMLAttributes<HTMLSelectElement>, 'size'> {
   label?: string;
   error?: string;
-  options: { value: string; label: string }[];
+  options: { value: string; label: string; disabled?: boolean }[];
   size?: 'sm' | 'md';
 }
 
@@ -139,18 +139,22 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
           >
             {options.map((opt) => {
               const isSelected = opt.value === currentValue;
+              const isDisabled = opt.disabled === true;
               return (
                 <li key={opt.value || '__empty'} role="option" aria-selected={isSelected}>
                   <button
                     type="button"
+                    disabled={isDisabled}
                     className={cn(
                       'flex w-full items-center justify-between gap-2 rounded-lg px-3 py-2.5 text-left text-sm transition-colors',
-                      isSelected
-                        ? 'bg-brand-500/15 text-brand-500'
-                        : 'text-foreground hover:bg-white/5'
+                      isDisabled && 'cursor-not-allowed opacity-50',
+                      !isDisabled &&
+                        (isSelected
+                          ? 'bg-brand-500/15 text-brand-500'
+                          : 'text-foreground hover:bg-white/5')
                     )}
                     onMouseDown={(e) => e.preventDefault()}
-                    onClick={() => emitChange(opt.value)}
+                    onClick={() => !isDisabled && emitChange(opt.value)}
                   >
                     <span className="truncate">{opt.label}</span>
                     {isSelected && <Check className="h-4 w-4 shrink-0" />}

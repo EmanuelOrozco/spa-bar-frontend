@@ -37,7 +37,7 @@ export default function RegisterPage() {
         setError(field as keyof RegisterFormValues, { message });
       });
       if (!Object.keys(fieldErrors).length) {
-        toast.error(getApiErrorMessage(error));
+        setError('root', { message: getApiErrorMessage(error) });
       }
     }
   };
@@ -48,6 +48,11 @@ export default function RegisterPage() {
         <div className="glass-panel">
           <h2 className="mb-6 text-xl font-bold text-white">Crear Cuenta</h2>
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+            {errors.root?.message && (
+              <p className="rounded-lg border border-danger/30 bg-danger/10 px-3 py-2 text-sm text-danger">
+                {errors.root.message}
+              </p>
+            )}
             <Input
               id="name"
               label="Nombre completo"

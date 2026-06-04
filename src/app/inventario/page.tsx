@@ -113,7 +113,7 @@ export default function InventarioPage() {
           subtitle={
             isAdmin
               ? 'Gestión de stock en tiempo real (incluye productos ocultos en menú)'
-              : 'Gestión de stock en tiempo real'
+              : 'Consulta de stock. El descuento se aplica automáticamente al entregar pedidos.'
           }
         />
 
@@ -173,7 +173,7 @@ export default function InventarioPage() {
                   { key: 'unit', label: 'Unidad' },
                   { key: 'min', label: 'Mín.' },
                   { key: 'estado', label: 'Estado' },
-                  { key: 'accion', label: 'Acción' },
+                  ...(isAdmin ? [{ key: 'accion', label: 'Acción' }] : []),
                 ]}
               >
                 {filteredProducts.map((product) => (
@@ -200,15 +200,17 @@ export default function InventarioPage() {
                     <DataCell>{product.unit}</DataCell>
                     <DataCell>{product.minStock}</DataCell>
                     <DataCell>{stockBadge(product.stock, product.minStock)}</DataCell>
-                    <DataCell>
-                      <Button
-                        variant="outline"
-                        className="px-3 py-1 text-xs"
-                        onClick={() => openAdjust(product)}
-                      >
-                        Ajustar
-                      </Button>
-                    </DataCell>
+                    {isAdmin && (
+                      <DataCell>
+                        <Button
+                          variant="outline"
+                          className="px-3 py-1 text-xs"
+                          onClick={() => openAdjust(product)}
+                        >
+                          Ajustar
+                        </Button>
+                      </DataCell>
+                    )}
                   </DataRow>
                 ))}
               </DataTable>
@@ -219,28 +221,30 @@ export default function InventarioPage() {
           )}
         </Card>
 
-        <Modal
-          isOpen={Boolean(adjustProduct)}
-          onClose={() => setAdjustProduct(null)}
-          title={`Ajustar stock — ${adjustProduct?.name}`}
-        >
-          <div className="space-y-4">
-            <p className="text-sm text-muted">
-              Stock actual: <strong className="text-white">{adjustProduct?.stock}</strong>{' '}
-              {adjustProduct?.unit}
-            </p>
-            <Input
-              label="Nuevo stock"
-              type="number"
-              min={0}
-              value={newStock}
-              onChange={(e) => setNewStock(e.target.value)}
-            />
-            <Button className="w-full" onClick={saveStock} isLoading={update.isPending}>
-              Guardar
-            </Button>
-          </div>
-        </Modal>
+        {isAdmin && (
+          <Modal
+            isOpen={Boolean(adjustProduct)}
+            onClose={() => setAdjustProduct(null)}
+            title={`Ajustar stock — ${adjustProduct?.name}`}
+          >
+            <div className="space-y-4">
+              <p className="text-sm text-muted">
+                Stock actual: <strong className="text-white">{adjustProduct?.stock}</strong>{' '}
+                {adjustProduct?.unit}
+              </p>
+              <Input
+                label="Nuevo stock"
+                type="number"
+                min={0}
+                value={newStock}
+                onChange={(e) => setNewStock(e.target.value)}
+              />
+              <Button className="w-full" onClick={saveStock} isLoading={update.isPending}>
+                Guardar
+              </Button>
+            </div>
+          </Modal>
+        )}
       </AppShell>
     </ProtectedRoute>
   );
